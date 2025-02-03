@@ -46,86 +46,6 @@ config LE_AUDIO_PRESENTATION_DELAY_MS
 	  encoding the audio.
 
 choice
-	prompt "Choose audio sampling frequency"
-	default LE_AUDIO_SAMPLING_FREQUENCY_48KHZ
-
-	config LE_AUDIO_SAMPLING_FREQUENCY_8KHZ
-	bool "8 kHz"
-	config LE_AUDIO_SAMPLING_FREQUENCY_16KHZ
-	bool "16 kHz"
-	config LE_AUDIO_SAMPLING_FREQUENCY_24KHZ
-	bool "24 kHz"
-	config LE_AUDIO_SAMPLING_FREQUENCY_32KHZ
-	bool "32 kHz"
-	config LE_AUDIO_SAMPLING_FREQUENCY_48KHZ
-	bool "48 kHz"
-
-endchoice
-
-config LE_AUDIO_SAMPLING_FREQUENCY_HZ
-	int
-	default 8000 if LE_AUDIO_SAMPLING_FREQUENCY_8KHZ
-	default 16000 if LE_AUDIO_SAMPLING_FREQUENCY_16KHZ
-	default 24000 if LE_AUDIO_SAMPLING_FREQUENCY_24KHZ
-	default 32000 if LE_AUDIO_SAMPLING_FREQUENCY_32KHZ
-	default 48000 if LE_AUDIO_SAMPLING_FREQUENCY_48KHZ
-
-choice
-	prompt "Choose size of each encoded audio frame in bytes"
-	default LE_AUDIO_OCTETS_PER_CODEC_FRAME_100
-	help
-	  The number of bytes in each encoded audio frame. This is used to determine how much the
-	  audio data needs to be compressed by the codec. For example if audio is sampled at 48 kHz,
-	  each audio sample is 16 bits (2 bytes), and the frame duration is 10 ms, then the number of
-	  bytes per "raw" audio frame is (48000 / 100) * 2 = 960 bytes. If the encoded audio frame is
-	  100 bytes, then the data is compressed by a factor of 960 / 100 = 9.6. This choice is a
-	  trade-off between audio quality and the air-time and resources used by the stream.
-
-	config LE_AUDIO_OCTETS_PER_CODEC_FRAME_30
-	bool "30"
-	config LE_AUDIO_OCTETS_PER_CODEC_FRAME_40
-	bool "40"
-	config LE_AUDIO_OCTETS_PER_CODEC_FRAME_60
-	bool "60"
-	config LE_AUDIO_OCTETS_PER_CODEC_FRAME_80
-	bool "80"
-	config LE_AUDIO_OCTETS_PER_CODEC_FRAME_100
-	bool "100"
-	config LE_AUDIO_OCTETS_PER_CODEC_FRAME_120
-	bool "120"
-	config LE_AUDIO_OCTETS_PER_CODEC_FRAME_155
-	bool "155"
-endchoice
-
-config LE_AUDIO_OCTETS_PER_CODEC_FRAME
-	int
-	default 30 if LE_AUDIO_OCTETS_PER_CODEC_FRAME_30
-	default 40 if LE_AUDIO_OCTETS_PER_CODEC_FRAME_40
-	default 60 if LE_AUDIO_OCTETS_PER_CODEC_FRAME_60
-	default 80 if LE_AUDIO_OCTETS_PER_CODEC_FRAME_80
-	default 100 if LE_AUDIO_OCTETS_PER_CODEC_FRAME_100
-	default 120 if LE_AUDIO_OCTETS_PER_CODEC_FRAME_120
-	default 155 if LE_AUDIO_OCTETS_PER_CODEC_FRAME_155
-choice
-	prompt "Choose number of LE audio retransmissions"
-	default LE_AUDIO_RTN_4
-	help
-	  Max number of retransmissions of each frame. A higher number will give a higher probabilty
-	  of the frame being received successfully, but also uses more air-time. The controller uses
-	  this value as a suggestion and may choose a different value depending on other constraints
-
-	config LE_AUDIO_RTN_2
-	bool "2"
-	config LE_AUDIO_RTN_4
-	bool "4"
-endchoice
-
-config LE_AUDIO_RTN
-	int
-	default 2 if LE_AUDIO_RTN_2
-	default 4 if LE_AUDIO_RTN_4
-
-choice
 	prompt "Choose LE audio max transport latency"
 	default LE_AUDIO_MAX_TLATENCY_10
 	help
@@ -141,6 +61,19 @@ choice
 	config LE_AUDIO_MAX_TLATENCY_20
 	bool "20 ms"
 endchoice
+
+config APP_PRINT_STATS
+	bool "Print info about send SDUs"
+	depends on LOG
+
+config APP_PRINT_STATS_INTERVAL
+	int "Interval for printing info about send frames, in SDU count"
+	default 1024
+	depends on APP_PRINT_STATS
+	help
+	  Interval at which to print presentation delay statistics. The interval is measured in SDU
+	  count, e.g. 1024 means to print the statistics every 512 SDUs (per channel). With a 10 ms
+	  SDU interval this is around 10 seconds.
 
 config LE_AUDIO_MAX_TLATENCY
 	int

@@ -31,6 +31,122 @@ module = BLE_AUDIO
 module-str = ble-audio
 source "subsys/logging/Kconfig.template.log_config"
 
+config ALIF_BLE_AUDIO_MONO
+	bool "Mono mode"
+	help
+		In mono mode the application will only record a single (left) channel from the I2S, encode
+		this channel once, but send out the encoded SDUs on both left and right broadcast
+		isochronous streams.
+
+		This means that to a sink device it appears as though both left and right channels are
+		present, which is sometimes required for compatibility.
+
+		But only one LC3 encoder is needed which saves on memory and runtime, plus this could also
+		be useful in a case where the source of the audio data (e.g. microphone) only outputs a
+		single channel.
+
+choice
+	prompt "Choose BAP frame duration"
+	default ALIF_BLE_AUDIO_FRAME_DURATION_10MS
+
+	config ALIF_BLE_AUDIO_FRAME_DURATION_7_5MS
+	bool "7.5ms"
+	config ALIF_BLE_AUDIO_FRAME_DURATION_10MS
+	bool "10ms"
+
+endchoice
+
+choice
+	prompt "Choose audio sampling rate"
+	default ALIF_BLE_AUDIO_FS_48KHZ
+
+	config ALIF_BLE_AUDIO_FS_8KHZ
+	bool "8 kHz"
+	config ALIF_BLE_AUDIO_FS_16KHZ
+	bool "16 kHz"
+	config ALIF_BLE_AUDIO_FS_24KHZ
+	bool "24 kHz"
+	config ALIF_BLE_AUDIO_FS_32KHZ
+	bool "32 kHz"
+	config ALIF_BLE_AUDIO_FS_48KHZ
+	bool "48 kHz"
+
+endchoice
+
+config ALIF_BLE_AUDIO_FS_HZ
+	int
+	range 8000 48000
+	default 8000 if ALIF_BLE_AUDIO_FS_8KHZ
+	default 16000 if ALIF_BLE_AUDIO_FS_16KHZ
+	default 24000 if ALIF_BLE_AUDIO_FS_24KHZ
+	default 32000 if ALIF_BLE_AUDIO_FS_32KHZ
+	default 48000 if ALIF_BLE_AUDIO_FS_48KHZ
+
+config ALIF_BLE_AUDIO_NMB_CHANNELS
+	int "Number of audio channels"
+	range 1 2
+	default 2
+	default 1 if ALIF_BLE_AUDIO_MONO
+	help
+	  Number of audio channels
+
+choice
+	prompt "Choose size of each encoded audio frame in bytes"
+	default ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_100
+	help
+	  The number of bytes in each encoded audio frame. This is used to determine how much the
+	  audio data needs to be compressed by the codec. For example if audio is sampled at 48 kHz,
+	  each audio sample is 16 bits (2 bytes), and the frame duration is 10 ms, then the number of
+	  bytes per "raw" audio frame is (48000 / 100) * 2 = 960 bytes. If the encoded audio frame is
+	  100 bytes, then the data is compressed by a factor of 960 / 100 = 9.6. This choice is a
+	  trade-off between audio quality and the air-time and resources used by the stream.
+
+	config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_30
+	bool "30"
+	config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_40
+	bool "40"
+	config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_60
+	bool "60"
+	config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_80
+	bool "80"
+	config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_100
+	bool "100"
+	config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_120
+	bool "120"
+	config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_155
+	bool "155"
+endchoice
+
+config ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME
+	int
+	range 30 155
+	default 30 if ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_30
+	default 40 if ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_40
+	default 60 if ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_60
+	default 80 if ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_80
+	default 100 if ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_100
+	default 120 if ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_120
+	default 155 if ALIF_BLE_AUDIO_OCTETS_PER_CODEC_FRAME_155
+
+choice
+	prompt "Choose number of LE audio retransmissions"
+	default ALIF_BLE_AUDIO_RTN_4
+	help
+	  Max number of retransmissions of each frame. A higher number will give a higher probabilty
+	  of the frame being received successfully, but also uses more air-time. The controller uses
+	  this value as a suggestion and may choose a different value depending on other constraints
+
+	config ALIF_BLE_AUDIO_RTN_2
+	bool "2"
+	config ALIF_BLE_AUDIO_RTN_4
+	bool "4"
+endchoice
+
+config ALIF_BLE_AUDIO_RTN
+	int
+	default 2 if ALIF_BLE_AUDIO_RTN_2
+	default 4 if ALIF_BLE_AUDIO_RTN_4
+
 choice
 	prompt "Choose presentation compensation direction"
 	help
@@ -54,11 +170,12 @@ endchoice
 
 config PRESENTATION_COMPENSATION_PRINT_STATS
 	bool "Print statistics about presentation delay"
+	depends on LOG
 
 config PRESENTATION_COMPENSATION_PRINT_STATS_INTERVAL
 	int "Interval for printing presentation delay statistics, in SDU count"
 	default 1024
-	depends on PRESENTATION_COMPENSATION_PRINT_STATS && LOG
+	depends on PRESENTATION_COMPENSATION_PRINT_STATS
 	help
 	  Interval at which to print presentation delay statistics. The interval is measured in SDU
 	  count, e.g. 1024 means to print the statistics every 512 SDUs (per channel). With a 10 ms
@@ -122,6 +239,7 @@ config PRESENTATION_COMPENSATION_CORRECTION_FACTOR
 
 config PRESENTATION_COMPENSATION_DEBUG
 	bool "Enable debug data to be recorded by presentation compensation module"
+	depends on LOG
 	help
 		The PI controller coefficients of the presentation compensation module may need tuning for
 		some use-cases. Enabling this causes presentation compensation data to be logged into a
